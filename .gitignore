@@ -1,0 +1,14 @@
+*.aux
+*.log
+*.dvi
+*.gz
+*.out
+*.bbl
+*.blg
+.doit.db
+*.pyc
+*.ipynb
+*.ipynb_checkpoints
+*.fdb_latexmk
+*.fls
+data/*.npz
