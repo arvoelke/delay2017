@@ -7,7 +7,6 @@
  - numpy==1.11.3
  - seaborn==0.7.1
  - matplotlib==2.0.0
- - hyperopt>=0.0.2 ([dependencies](https://github.com/hyperopt/hyperopt/pull/246/files) include: nose, pymongo, and networkx)
  - doit>=0.29.0
 
 ### Instructions
