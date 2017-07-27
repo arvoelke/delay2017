@@ -1,4 +1,5 @@
 import logging
+import warnings
 
 import numpy as np
 from scipy.special import lambertw, binom
@@ -18,14 +19,15 @@ from matplotlib.mlab import PCA
 from matplotlib.patches import Polygon
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
+import nengo
 from nengo.processes import WhiteSignal
 
-from nengolib.signal import cont2discrete, LinearSystem
+import nengolib
+from nengolib.signal import cont2discrete, LinearSystem, nrmse
 from nengolib.stats import sphere
-from nengolib.synapses import (DiscreteDelay, PureDelay, Lowpass, DoubleExp,
+from nengolib.synapses import (DiscreteDelay, PadeDelay, Lowpass, DoubleExp,
                                ss2sim)
-
-from main import (nrmse, delayed_synapse, delay_example, discrete_example,
+from main import (delayed_synapse, delay_example, discrete_example,
                   time_cells, lambert_delay)
 
 ###############################################################################
@@ -35,6 +37,16 @@ mpl.rcParams['text.usetex'] = True
 mpl.rcParams['font.serif'] = 'cm'
 
 logging.basicConfig(level=logging.INFO)
+
+###############################################################################
+
+if nengo.version.version_info != (2, 4, 0):
+    warnings.warn("Expecting nengo version 2.4.0, saw %s" %
+                  nengo.__version__)
+
+if nengolib.version.version_info != (0, 4, 0):
+    warnings.warn("Expecting nengolib version 0.4.0, saw %s" %
+                  nengolib.__version__)
 
 ###############################################################################
 
@@ -165,8 +177,8 @@ def figure_lambert(targets):
     cmap = sns.color_palette(None, 4)
 
     F_lamb = lambert_delay(theta, lmbda, tau, q-1, q)
-    F_low = ss2sim(PureDelay(theta, order=q), Lowpass(tau))
-    F_alpha = ss2sim(PureDelay(theta, order=q), DoubleExp(tau, tau2))
+    F_low = ss2sim(PadeDelay(theta, order=q), Lowpass(tau), dt=None)
+    F_alpha = ss2sim(PadeDelay(theta, order=q), DoubleExp(tau, tau2), dt=None)
 
     y_low = F_low(tau*s + 1)
     y_lamb = F_lamb((tau*s + 1)*np.exp(lmbda*s))
@@ -290,8 +302,8 @@ def figure_principle3(targets):
             ax2.set_title("Delayed Lowpass Improvement").set_y(1.05)
 
             for i, q in enumerate(orders):
-                sys = PureDelay(theta, order=q)
-                mapped = ss2sim(sys, Lowpass(tau))
+                sys = PadeDelay(theta, order=q)
+                mapped = ss2sim(sys, Lowpass(tau), dt=None)
                 lambert = lambert_delay(theta, lmbda, tau, q-1, q)
 
                 y_lamb = lambert(Hinvs)
@@ -480,7 +492,7 @@ def figure_delay_full(targets):
                 r"Decoding at $\theta$ = Frequency$^{-1}$").set_y(1.05)
 
             for i, thetap in enumerate(props*theta):
-                A, B, _, D = PureDelay(theta, order=q).ss
+                A, B, _, D = PadeDelay(theta, order=q).ss
                 C = delay_readout(q, thetap, theta)[::-1]
                 tf = LinearSystem((A, B, C, D))
 
@@ -638,7 +650,7 @@ def figure_pca(targets):
             gs = gridspec.GridSpec(2, len(orders), height_ratios=[1.3, 1])
 
             for k, order in enumerate(orders):
-                F = PureDelay(theta, order)
+                F = PadeDelay(theta, order)
                 A = F.A
                 dA, dB, _, _ = cont2discrete(F, dt=dt).ss
 
@@ -654,6 +666,9 @@ def figure_pca(targets):
                 # Compute PCA of trajectory for top half
                 pca = PCA(x, standardize=False)
                 p = pca.Y[:, :3]
+
+                logging.info("%d Accounted Variance: %s",
+                             order, np.sum(pca.fracs[:3]) / np.sum(pca.fracs))
 
                 # Compute curve for bottom half (and color map center)
                 dist = np.cumsum(np.linalg.norm(dx, axis=1))

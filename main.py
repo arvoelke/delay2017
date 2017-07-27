@@ -10,17 +10,13 @@ from nengo.processes import WhiteSignal, PresentInput
 from nengo.solvers import LstsqL2
 from nengo.utils.numpy import rmse, rms
 
+
 from nengolib import Network
 from nengolib.neurons import PerfectLIF
-from nengolib.signal import (Balreal, LinearSystem, cont2discrete,
-                             canonical, scale_state)
+from nengolib.signal import (Balanced, LinearSystem, cont2discrete,
+                             canonical, nrmse)
 from nengolib.networks import LinearNetwork
-from nengolib.synapses import (Alpha, Lowpass, PureDelay, DoubleExp,
-                               DiscreteDelay)
-
-
-def nrmse(output, target):
-    return rmse(output, target) / rms(target)
+from nengolib.synapses import Alpha, Lowpass, DoubleExp, DiscreteDelay
 
 
 def lambert_delay(delay, sub_delay, tau, p, q):
@@ -55,11 +51,9 @@ def delayed_synapse():
     n_neurons = 2000
     neuron_type = PerfectLIF()
 
-    A, B, C, D = scale_state(
-        canonical(sys_lambert, controllable=False),
-        radii=5.0).ss
+    A, B, C, D = sys_lambert.observable.transform(5*np.eye(order)).ss
 
-    sys_normal = PureDelay(a, order)
+    sys_normal = PadeDelay(a, order)
     assert len(sys_normal) == order
 
     with Network(seed=0) as model:
@@ -74,13 +68,13 @@ def delayed_synapse():
         Connection(stim, output, transform=D, synapse=None)
 
         lowpass_delay = LinearNetwork(
-            sys_normal, n_neurons=n_neurons / order,
+            sys_normal, n_neurons_per_ensemble=n_neurons / order,
             synapse=tau, input_synapse=tau,
             dt=None, neuron_type=neuron_type, radii=1.0)
         Connection(stim, lowpass_delay.input, synapse=None)
 
         dexp_delay = LinearNetwork(
-            sys_normal, n_neurons=n_neurons / order,
+            sys_normal, n_neurons_per_ensemble=n_neurons / order,
             synapse=dexp_synapse, input_synapse=dexp_synapse,
             dt=None, neuron_type=neuron_type, radii=1.0)
         Connection(stim, dexp_delay.input, synapse=None)
@@ -103,7 +97,7 @@ def delay_example():
 
     n_neurons = 1000
     theta = 1.0
-    sys = PureDelay(theta, 6)
+    sys = PadeDelay(theta, 6)
 
     T = 20.0
     dt = 0.001
@@ -126,13 +120,13 @@ def delay_example():
             u = Node(output=signal)
 
             delay = LinearNetwork(
-                sys, n_neurons=n_neurons / len(sys), synapse=tau,
-                input_synapse=tau, radii=radii, normalizer=Balreal(), dt=None)
+                sys, n_neurons_per_ensemble=n_neurons / len(sys), synapse=tau,
+                input_synapse=tau, radii=radii, realizer=Balanced(), dt=None)
             Connection(u, delay.input, synapse=None)
 
             p_u = Probe(u, synapse=tau_probe)
-            p_x = Probe(delay.x.input, synapse=None)
-            p_a = Probe(delay.x.add_neuron_output(), synapse=None)
+            p_x = Probe(delay.state.input, synapse=None)
+            p_a = Probe(delay.state.add_neuron_output(), synapse=None)
             p_y = Probe(delay.output, synapse=tau_probe)
 
         with Simulator(model, dt=dt, seed=seed) as sim:
@@ -153,7 +147,7 @@ def discrete_example(seed, dt):
     freq = 50
     q = 27
     radii = 1.0
-    sys = PureDelay(theta, q)
+    sys = PadeDelay(theta, q)
 
     T = 5000*(dt+0.001)
     rms = 1.0
@@ -165,11 +159,11 @@ def discrete_example(seed, dt):
 
     # Determine radii using direct mode
     with LinearNetwork(
-            sys, n_neurons=1, input_synapse=tau, synapse=tau,
+            sys, n_neurons_per_ensemble=1, input_synapse=tau, synapse=tau,
             dt=dt, neuron_type=Direct(),
-            normalizer=Balreal()) as model:
+            realizer=Balanced()) as model:
         Connection(Node(output=signal), model.input, synapse=None)
-        p_x = Probe(model.x.input, synapse=None)
+        p_x = Probe(model.state.input, synapse=None)
 
     with Simulator(model, dt=dt, seed=seed+1) as sim:
         sim.run(T)
@@ -181,9 +175,9 @@ def discrete_example(seed, dt):
         u = Node(output=signal)
 
         kwargs = dict(
-            n_neurons=n_neurons / len(sys),
+            n_neurons_per_ensemble=n_neurons / len(sys),
             input_synapse=tau, synapse=tau, radii=radii,
-            solver=LstsqL2(reg=reg), normalizer=Balreal())
+            solver=LstsqL2(reg=reg), realizer=Balanced())
         delay_disc = LinearNetwork(sys, dt=dt, **kwargs)
         delay_cont = LinearNetwork(sys, dt=None, **kwargs)
         Connection(u, delay_disc.input, synapse=None)
@@ -206,14 +200,15 @@ def time_cells(order):
     theta = 4.784
     tau = 0.1
     radius = 0.3
-    normalizer = Balreal
+    realizer = Balanced
+
 
     # The following was patched from nengolib commit
     # 7e204e0c305e34a4f63d0a6fbba7197862bbcf22, prior to
     # aee92b8fc45749f07f663fe696745cf0a33bfa17, so that
     # the generated PDF is consistent with the version that the
     # overlay was added to.
-    def PureDelay(c, q):
+    def PadeDelay(c, q):
         j = np.arange(1, q+1, dtype=np.float64)
         u = (q + j - 1) * (q - j + 1) / (c * j)
 
@@ -227,7 +222,7 @@ def time_cells(order):
         C[0, :] = - j / float(q) * (-1) ** (q - j)
         return LinearSystem((A, B, C, D), analog=True)
 
-    F = PureDelay(theta, order)
+    F = PadeDelay(theta, order)
     synapse = Alpha(tau)
 
     pulse_s = 0
@@ -243,12 +238,12 @@ def time_cells(order):
         u = Node(output=PresentInput(pulse, dt))
 
         delay = LinearNetwork(
-            F, n_neurons=n_neurons / len(F), synapse=synapse,
-            input_synapse=None, radii=radius, dt=dt, normalizer=normalizer())
+            F, n_neurons_per_ensemble=n_neurons / len(F), synapse=synapse,
+            input_synapse=None, radii=radius, dt=dt, realizer=realizer())
         Connection(u, delay.input, synapse=None)
 
-        p_x = Probe(delay.x.input, synapse=None)
-        p_a = Probe(delay.x.add_neuron_output(), synapse=None)
+        p_x = Probe(delay.state.input, synapse=None)
+        p_a = Probe(delay.state.add_neuron_output(), synapse=None)
 
     with Simulator(model, dt=dt) as sim:
         sim.run(T)
