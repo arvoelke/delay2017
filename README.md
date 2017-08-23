@@ -1,8 +1,8 @@
 ### Requirements
 
  - Python 2.7.3
- - nengolib ([pre-release](https://github.com/arvoelke/nengolib/tree/aee92b8fc45749f07f663fe696745cf0a33bfa17))
- - nengo==2.3.1.dev0
+ - nengolib==0.4.1
+ - nengo==2.4.0
  - scipy==0.18.0rc1
  - numpy==1.11.3
  - seaborn==0.7.1

@@ -16,7 +16,8 @@ from nengolib.neurons import PerfectLIF
 from nengolib.signal import (Balanced, LinearSystem, cont2discrete,
                              canonical, nrmse)
 from nengolib.networks import LinearNetwork
-from nengolib.synapses import Alpha, Lowpass, DoubleExp, DiscreteDelay
+from nengolib.synapses import (Alpha, Lowpass, DoubleExp, DiscreteDelay,
+                               PadeDelay)
 
 
 def lambert_delay(delay, sub_delay, tau, p, q):
@@ -105,7 +106,7 @@ def delay_example():
     rms = 0.4
 
     tau = 0.1
-    tau_probe = 0.02
+    #tau_probe = 0.02
 
     radii = np.ones(len(sys))  # initial guess
     desired_radius = 0.8  # aiming to get this as largest x
@@ -124,10 +125,24 @@ def delay_example():
                 input_synapse=tau, radii=radii, realizer=Balanced(), dt=None)
             Connection(u, delay.input, synapse=None)
 
-            p_u = Probe(u, synapse=tau_probe)
+            # Since delay.state.input is the PSC x, when we can transform
+            # that with C to get y (note D=0) without applying any filters
+            assert np.allclose(delay.D, 0)
+            output = Node(size_in=1)
+            Connection(delay.state.input, output, transform=delay.C,
+                       synapse=None)
+            # Alternative: create an output tau*dy + y such that when
+            # filtered we get back y! Note: dy = C(Ax + Bu), since D=0.
+            #Connection(delay.state.output, output,
+            #           transform=tau*delay.C.dot(delay.A), synapse=tau)
+            #Connection(u, output,
+            #           transform=tau*delay.C.dot(delay.B), synapse=tau)
+            #Connection(delay.output, output, synapse=tau)
+
+            p_u = Probe(u, synapse=None)
             p_x = Probe(delay.state.input, synapse=None)
             p_a = Probe(delay.state.add_neuron_output(), synapse=None)
-            p_y = Probe(delay.output, synapse=tau_probe)
+            p_y = Probe(output, synapse=None)
 
         with Simulator(model, dt=dt, seed=seed) as sim:
             sim.run(T)
