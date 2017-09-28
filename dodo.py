@@ -44,8 +44,8 @@ if nengo.version.version_info != (2, 4, 0):
     warnings.warn("Expecting nengo version 2.4.0, saw %s" %
                   nengo.__version__)
 
-if nengolib.version.version_info != (0, 4, 0):
-    warnings.warn("Expecting nengolib version 0.4.0, saw %s" %
+if nengolib.version.version_info != (0, 4, 1):
+    warnings.warn("Expecting nengolib version 0.4.1, saw %s" %
                   nengolib.__version__)
 
 ###############################################################################
@@ -119,7 +119,7 @@ def simulate_time_cells(targets, order):
 
 
 def savefig(name):
-    pylab.savefig(name, dpi=300, transparent=True, bbox_inches='tight')
+    pylab.savefig(name, dpi=600, transparent=True, bbox_inches='tight')
 
 
 def ideal_delay(x, delay, dt):
