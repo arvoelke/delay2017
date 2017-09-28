@@ -267,7 +267,7 @@ Specifically, the weight matrix $W = [\omega_{ij}] \in \mathbb{R}^{n \times n}$,
 \end{equation}
 %where $E$ are the encoders of the postsynaptic population from equation~\ref{eq:encoding}, and $D$ are the decoders of the presynaptic population solved by equation~\ref{eq:decoder_solution}.
 Consequently, the matrices $E$ and $D^\vec{f}$ are a low-rank factorization of $W$.
-In other words, the process of decoding (equation~\ref{eq:trans-decode}) and then encoding (equation~\ref{eq:encoding}) is equivalent to taking the dot-product of the neural activities with the full-rank weight matrix $W$.
+In other words, the process of decoding (equation~\ref{eq:trans-decode}) and then encoding (equation~\ref{eq:encoding}) is equivalent to taking the dot-product of the full-rank weight matrix $W$ with the neural activities.
 % Intuitively, structure is imposed by the choice of representing $\vec{x}(t)$, which in turn becomes latent within the weight matrix.
 
 This factorization has important consequences for the computational efficiency of neural simulations.
@@ -276,7 +276,7 @@ Since $q$ is typically held constant, this yields a factor $\mathcal{O}(n)$ impr
 Similarly, this factorizations yields an $\mathcal{O}(n)$ reduction in memory, which significantly improves the scaling of neuromorphics~\citep{mundy2015efficient}.
 % including those in RC.
 In essence, this factorization provides a way to describe the network's latent state-vector $\vec{x}(t)$.
-This, in turn, permits us to perform useful computations by transforming the state-vector with $\mathcal{O} \left( \frac{1}{\sqrt{n}} \right)$ error in the presence of spike noise~\citep[][p.~47]{eliasmith2003neural}.
+This, in turn, permits us to perform useful computations by transforming the state-vector with $\mathcal{O} \left( \frac{1}{\sqrt{n}} \right)$ error in the presence of spike-noise~\citep[][p.~47]{eliasmith2003neural}.
 
 \subsection{Principle 3 -- Dynamics}
 \label{sec:principle3}
@@ -442,7 +442,7 @@ In such a case, the output will not depend on future input, and so the system is
 The degree of the denominator corresponds to the dimensionality of the state-vector, and therefore must be finite.
 These two conditions align with physically realistic constraints where time may only progress forward, and neural resources are limited.
 
-However, the pure delay (equation~\ref{eq:tf-delay}) has infinite order when expressed as a ratio of polynomials in $s$, and so the system is irrational, or infinitely-dimensional.
+However, the pure delay (equation~\ref{eq:tf-delay}) has infinite order when expressed as a ratio of polynomials in $s$, and so the system is irrational, or infinite-dimensional.
 Consequently, no finite state-space model will exist for $F(s)$, which formalizes our previous intuition that an exact solution is impossible for finite, continuous-time systems.
 To overcome this, we must approximate the irrational transfer function $e^{-\theta s}$ as a proper ratio of finite-order polynomials.
 We do so using its \emph{Pad\'e approximants}---the coefficients of a Taylor series extended to the ratio of two polynomials---expanded about $s=0$~\citep{Pade1892, vajta2000some}:
